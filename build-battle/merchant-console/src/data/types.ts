@@ -82,3 +82,40 @@ export interface PaymentFilters {
   sort?: "createdAt" | "amount"
   direction?: "asc" | "desc"
 }
+
+export type CardStatus = "active" | "frozen" | "cancelled"
+
+export type CardCategory =
+  | "software"
+  | "advertising"
+  | "contractor_tools"
+  | "travel"
+  | "office_supplies"
+
+export interface CardEvent {
+  type: "issued" | "frozen" | "unfrozen" | "cancelled"
+  /** ISO 8601, always UTC. */
+  at: string
+}
+
+/**
+ * A virtual card. The full number is never stored: it exists only in the
+ * creation response. The record keeps the last four and an opaque reference.
+ */
+export interface Card {
+  id: string
+  merchantId: string
+  nickname: string
+  last4: string
+  numberRef: string
+  /** Spend limit, integer minor units. */
+  limit: number
+  /** Spend to date, integer minor units. */
+  spent: number
+  currency: Currency
+  status: CardStatus
+  category: CardCategory | null
+  /** ISO 8601, always UTC. */
+  createdAt: string
+  events: CardEvent[]
+}

@@ -5,7 +5,7 @@
 
 **Ticket:** [NWP-201](../tickets/NWP-201.md)
 **Author:** Chris Millar
-**Status:** draft
+**Status:** done
 
 ## Problem
 
@@ -85,7 +85,8 @@ All paths are relative to `build-battle/merchant-console/`.
 | `src/data/types.ts` | Change | `Card`, `CardStatus`, `CardCategory` and `CardEvent` types |
 | `src/data/store.ts` | Change | `cards: Card[]`, plus an idempotency-key map |
 | `src/data/generate.ts` | Change | Deterministic demo cards with spend. Last four and reference only |
-| `src/data/queries.ts` | Change | `listCards`, `cardById` |
+| `src/data/cards.ts` | Add | `listCards`, `cardById`, `issueCard` (idempotent) and `transitionCard` (guarded). Server only, and the one place a number is generated. Changed during the build: it replaces the planned additions to `queries.ts`, which is about payments |
+| `src/components/ui/navigation/Breadcrumbs.tsx` | Change | "Cards" breadcrumb label |
 | `src/lib/cards.ts` | Add | Luhn, number generation, masking, transitions, input validation |
 | `src/lib/cards.test.ts` | Add | Unit tests beside the code (stretch: tests) |
 | `src/app/api/cards/route.ts` | Add | `GET` (masked list) and `POST` (issue, reveal once) |

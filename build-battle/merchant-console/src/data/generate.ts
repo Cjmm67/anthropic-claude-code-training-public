@@ -1,5 +1,8 @@
+import { generateCardNumber } from "@/lib/cards"
 import { merchants } from "./merchants"
 import {
+  Card,
+  CardCategory,
   Currency,
   Dispute,
   Payment,
@@ -148,7 +151,60 @@ export function generate() {
   }
 
   const payouts = generatePayouts(payments)
-  return { payments, refunds, disputes, payouts }
+  // Cards are generated last so they do not shift the payment sequence above.
+  const cards = generateCards()
+  return { payments, refunds, disputes, payouts, cards }
+}
+
+/**
+ * Demo cards with spend to date, so the list and the spend bar have something
+ * to show. Only the last four and an opaque reference are kept: the full
+ * number is generated and dropped, exactly as a real issue would.
+ */
+function generateCards(): Card[] {
+  const specs: {
+    nickname: string
+    merchantId: string
+    limit: number
+    /** Spend to date, integer minor units. */
+    spent: number
+    category: CardCategory | null
+    status: Card["status"]
+  }[] = [
+    { nickname: "Google Ads", merchantId: "mch_01", limit: 500_000, spent: 210_000, category: "advertising", status: "active" },
+    { nickname: "Design tools", merchantId: "mch_04", limit: 120_000, spent: 103_200, category: "software", status: "active" },
+    { nickname: "Contractor laptops", merchantId: "mch_05", limit: 2_500_000, spent: 2_425_000, category: "contractor_tools", status: "frozen" },
+    { nickname: "Trade show travel", merchantId: "mch_07", limit: 800_000, spent: 120_000, category: "travel", status: "active" },
+    { nickname: "Old hosting plan", merchantId: "mch_03", limit: 60_000, spent: 30_000, category: "software", status: "cancelled" },
+  ]
+
+  return specs.map((spec, index) => {
+    const merchant = merchants.find((m) => m.id === spec.merchantId)!
+    const number = generateCardNumber(() => between(0, 9))
+    const issued = new Date(GENERATED_AT.getTime() - between(20, 90) * 86_400_000)
+    const createdAt = issued.toISOString()
+    const events: Card["events"] = [{ type: "issued", at: createdAt }]
+    if (spec.status !== "active") {
+      events.push({
+        type: spec.status === "frozen" ? "frozen" : "cancelled",
+        at: new Date(issued.getTime() + between(3, 15) * 86_400_000).toISOString(),
+      })
+    }
+    return {
+      id: `card_${pad(index + 1, 4)}`,
+      merchantId: merchant.id,
+      nickname: spec.nickname,
+      last4: number.slice(-4),
+      numberRef: `tok_seed_${pad(index + 1, 4)}`,
+      limit: spec.limit,
+      spent: spec.spent,
+      currency: merchant.currency,
+      status: spec.status,
+      category: spec.category,
+      createdAt,
+      events,
+    }
+  })
 }
 
 function generatePayouts(payments: Payment[]): Payout[] {
