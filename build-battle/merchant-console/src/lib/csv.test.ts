@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest"
 import { Payment } from "@/data/types"
-import { EXPORT_COLUMNS, exportFilename, toCsv } from "./csv"
+import {
+  DEFAULT_EXPORT_COLUMNS,
+  EXPORT_COLUMNS,
+  exportFilename,
+  exportScopeLabel,
+  parseExportColumns,
+  parseExportScope,
+  toCsv,
+} from "./csv"
 
 /**
  * The export is the file ops hands to a merchant, so a broken cell is a
@@ -81,5 +89,97 @@ describe("exportFilename", () => {
     expect(exportFilename(new Date("2026-03-14T23:00:00.000Z"))).toBe(
       "payments-2026-03-14.csv",
     )
+  })
+})
+
+describe("DEFAULT_EXPORT_COLUMNS", () => {
+  it("leaves the card last four out, so a default file is safe to send", () => {
+    expect(DEFAULT_EXPORT_COLUMNS).not.toContain("last4")
+    expect(toCsv([payment], DEFAULT_EXPORT_COLUMNS)).not.toContain("4242")
+  })
+
+  it("keeps every other column, with currency beside the amount", () => {
+    expect(DEFAULT_EXPORT_COLUMNS).toHaveLength(EXPORT_COLUMNS.length - 1)
+    expect(DEFAULT_EXPORT_COLUMNS).toContain("amount")
+    expect(DEFAULT_EXPORT_COLUMNS).toContain("currency")
+  })
+})
+
+describe("parseExportColumns", () => {
+  it("falls back to the safe defaults when no list is sent", () => {
+    expect(parseExportColumns(null)).toEqual([...DEFAULT_EXPORT_COLUMNS])
+  })
+
+  it("accepts known columns and returns them in canonical order", () => {
+    expect(parseExportColumns("amount,id,currency")).toEqual([
+      "id",
+      "amount",
+      "currency",
+    ])
+  })
+
+  it("includes last4 only when it is asked for", () => {
+    expect(parseExportColumns("id,last4")).toEqual(["id", "last4"])
+  })
+
+  it("drops duplicates and stray whitespace", () => {
+    expect(parseExportColumns(" id , id,amount ")).toEqual(["id", "amount"])
+  })
+
+  it("rejects any unknown column rather than silently skipping it", () => {
+    expect(parseExportColumns("id,card_number")).toBeNull()
+    expect(parseExportColumns("id,AMOUNT")).toBeNull()
+  })
+
+  it("rejects an empty list, so no headerless file is produced", () => {
+    expect(parseExportColumns("")).toBeNull()
+    expect(parseExportColumns(" , ")).toBeNull()
+  })
+})
+
+describe("exportFilename with a scope", () => {
+  const day = new Date("2026-08-13T09:00:00.000Z")
+
+  it("names the status when exporting the current filter", () => {
+    expect(exportFilename(day, "disputed")).toBe("payments-disputed-2026-08-13.csv")
+  })
+
+  it("says all when exporting every payment", () => {
+    expect(exportFilename(day, "all")).toBe("payments-all-2026-08-13.csv")
+  })
+
+  it("says filtered when the filter is not a single status", () => {
+    expect(exportFilename(day, "filtered")).toBe("payments-filtered-2026-08-13.csv")
+  })
+})
+
+describe("parseExportScope", () => {
+  it("defaults to the current filter for anything but 'all'", () => {
+    expect(parseExportScope(null)).toBe("filtered")
+    expect(parseExportScope("everything")).toBe("filtered")
+    expect(parseExportScope("all")).toBe("all")
+  })
+})
+
+describe("exportScopeLabel", () => {
+  it("is 'all' for the all-payments scope, whatever the filter", () => {
+    expect(exportScopeLabel("all", { status: "disputed" })).toBe("all")
+  })
+
+  it("uses the validated status for a status filter", () => {
+    expect(exportScopeLabel("filtered", { status: "disputed" })).toBe("disputed")
+  })
+
+  it("says 'filtered' for merchant or search filters, never their values", () => {
+    const label = exportScopeLabel("filtered", {
+      status: "all",
+      merchantId: "mch_01",
+      search: "../../etc",
+    })
+    expect(label).toBe("filtered")
+  })
+
+  it("is 'all' when the current filter narrows nothing", () => {
+    expect(exportScopeLabel("filtered", { status: "all" })).toBe("all")
   })
 })
