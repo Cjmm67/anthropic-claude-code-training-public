@@ -66,7 +66,7 @@ All paths are relative to `build-battle/merchant-console/`.
 - Every change appends to a per-card `events` history (issued, frozen, unfrozen, cancelled), with a UTC timestamp.
 
 **Pages.**
-- `/cards` is a server-rendered `Table` with an "Issue card" `Drawer`. The drawer defaults the currency to the merchant's and warns when it doesn't match (decided with the engineer). It shows the number on a success view that clears it on close.
+- `/cards` is a server-rendered `Table` with an "Issue card" `Drawer`. The drawer defaults the currency to the merchant's. On a mismatch the server returns a 400 unless the request carries `allowCurrencyMismatch: true`, which the drawer sends only when ops ticks "Yes, issue this card in …". This was revised after grading: a browser-only warning wasn't enforcement. It shows the number on a success view that clears it on close.
 - Freezing and unfreezing in the list call `PATCH`, then `router.refresh()`.
 - `/cards/[id]` shows the record, a spend bar (amber past 80%) and the event history in the merchant's timezone.
 
@@ -75,7 +75,7 @@ All paths are relative to `build-battle/merchant-console/`.
 **Considered and rejected:**
 - **A separate `CardStatusBadge`.** It would be a second badge implementation, so `StatusBadge` is extended instead.
 - **Generating numbers with the seed PRNG.** It's deterministic, and its comment says it is "not for anything that matters."
-- **Rejecting a merchant/currency mismatch on the server.** That is stricter than the ticket's written rule, so the form warns instead.
+- **Rejecting every merchant/currency mismatch outright.** That is stricter than the ticket's written rule, so a mismatch is allowed only with an explicit confirmation that the server checks.
 - **A database.** That's NWP-203.
 
 ## File map

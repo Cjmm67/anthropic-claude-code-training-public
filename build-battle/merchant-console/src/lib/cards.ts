@@ -98,6 +98,8 @@ export interface IssueCardInput {
   currency: Currency
   category: CardCategory | null
   idempotencyKey: string | null
+  /** True when ops confirmed a card currency different from the merchant's. */
+  allowCurrencyMismatch: boolean
 }
 
 export type ParseResult =
@@ -127,7 +129,8 @@ export function parseIssueCardInput(body: unknown): ParseResult {
   }
 
   const merchantId = typeof input.merchantId === "string" ? input.merchantId : ""
-  if (!merchantId || !merchantById(merchantId)) {
+  const merchant = merchantId ? merchantById(merchantId) : undefined
+  if (!merchant) {
     return fail("merchantId", "Choose the merchant this card is for.")
   }
 
@@ -143,6 +146,16 @@ export function parseIssueCardInput(body: unknown): ParseResult {
   const currency = input.currency
   if (!CARD_CURRENCIES.includes(currency as Currency)) {
     return fail("currency", "Choose USD, EUR, or GBP.")
+  }
+
+  // A card in a currency the merchant does not settle in is usually a
+  // mis-click, so the server refuses it unless ops explicitly confirmed it.
+  const allowCurrencyMismatch = input.allowCurrencyMismatch === true
+  if (currency !== merchant.currency && !allowCurrencyMismatch) {
+    return fail(
+      "currency",
+      `${merchant.name} settles in ${merchant.currency}. Choose ${merchant.currency}, or confirm a ${currency} card.`,
+    )
   }
 
   let category: CardCategory | null = null
@@ -173,6 +186,7 @@ export function parseIssueCardInput(body: unknown): ParseResult {
       currency: currency as Currency,
       category,
       idempotencyKey,
+      allowCurrencyMismatch,
     },
   }
 }

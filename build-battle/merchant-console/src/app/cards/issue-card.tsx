@@ -65,6 +65,7 @@ export function IssueCard({ merchants }: { merchants: MerchantOption[] }) {
   const [submitting, setSubmitting] = useState(false)
   const [requestKey, setRequestKey] = useState(newRequestKey)
   const [copied, setCopied] = useState(false)
+  const [confirmMismatch, setConfirmMismatch] = useState(false)
 
   const merchant = merchants.find((m) => m.id === merchantId)
   const currencyMismatch = merchant && currency && currency !== merchant.currency
@@ -81,6 +82,7 @@ export function IssueCard({ merchants }: { merchants: MerchantOption[] }) {
     setSubmitting(false)
     setRequestKey(newRequestKey())
     setCopied(false)
+    setConfirmMismatch(false)
   }
 
   const onOpenChange = (next: boolean) => {
@@ -98,6 +100,7 @@ export function IssueCard({ merchants }: { merchants: MerchantOption[] }) {
     const chosen = merchants.find((m) => m.id === id)
     // Default to the merchant's own currency; ops can still change it.
     if (chosen) setCurrency(chosen.currency)
+    setConfirmMismatch(false)
     setErrors((e) => ({ ...e, merchantId: undefined }))
   }
 
@@ -126,6 +129,7 @@ export function IssueCard({ merchants }: { merchants: MerchantOption[] }) {
           currency,
           category: category === NO_CATEGORY ? null : category,
           idempotencyKey: requestKey,
+          allowCurrencyMismatch: Boolean(currencyMismatch && confirmMismatch),
         }),
       })
       const body = await response.json().catch(() => null)
@@ -231,7 +235,10 @@ export function IssueCard({ merchants }: { merchants: MerchantOption[] }) {
                 <Field id="card-currency" label="Currency" error={errors.currency}>
                   <Select
                     value={currency}
-                    onValueChange={(value) => setCurrency(value as Currency)}
+                    onValueChange={(value) => {
+                      setCurrency(value as Currency)
+                      setConfirmMismatch(false)
+                    }}
                   >
                     <SelectTrigger
                       id="card-currency"
@@ -252,13 +259,23 @@ export function IssueCard({ merchants }: { merchants: MerchantOption[] }) {
               </div>
 
               {currencyMismatch && (
-                <p
+                <div
                   role="status"
                   className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-400/10 dark:text-amber-400"
                 >
-                  {merchant.name} settles in {merchant.currency}, not {currency}.
-                  Check this card should be in {currency} before issuing it.
-                </p>
+                  <p>
+                    {merchant.name} settles in {merchant.currency}, not {currency}.
+                  </p>
+                  <label className="mt-2 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={confirmMismatch}
+                      onChange={(e) => setConfirmMismatch(e.target.checked)}
+                      className="size-4 accent-amber-600"
+                    />
+                    Yes, issue this card in {currency}
+                  </label>
+                </div>
               )}
 
               <Field id="card-category" label="Merchant category lock (optional)">

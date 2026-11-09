@@ -109,6 +109,7 @@ describe("parseIssueCardInput", () => {
         currency: "USD",
         category: null,
         idempotencyKey: null,
+        allowCurrencyMismatch: false,
       },
     })
   })
@@ -133,6 +134,25 @@ describe("parseIssueCardInput", () => {
     const result = parseIssueCardInput(body)
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.field).toBe(field)
+  })
+
+  it("rejects a currency the merchant does not settle in, unless confirmed", () => {
+    // mch_05 Brandt & Sohn settles in EUR.
+    const usdForEurMerchant = { ...valid, merchantId: "mch_05", currency: "USD" }
+    const refused = parseIssueCardInput(usdForEurMerchant)
+    expect(refused.ok).toBe(false)
+    if (!refused.ok) expect(refused.field).toBe("currency")
+
+    const confirmed = parseIssueCardInput({
+      ...usdForEurMerchant,
+      allowCurrencyMismatch: true,
+    })
+    expect(confirmed.ok && confirmed.value.currency).toBe("USD")
+  })
+
+  it("only accepts a literal true as confirmation", () => {
+    const body = { ...valid, merchantId: "mch_05", currency: "USD" }
+    expect(parseIssueCardInput({ ...body, allowCurrencyMismatch: "true" }).ok).toBe(false)
   })
 
   it("rejects a body that is not an object", () => {
