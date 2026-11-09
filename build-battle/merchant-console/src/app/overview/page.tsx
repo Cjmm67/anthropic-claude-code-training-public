@@ -3,18 +3,31 @@ import { merchantById } from "@/data/merchants"
 import { dailyVolume, headlineMetrics } from "@/data/metrics"
 import { store } from "@/data/store"
 import { formatDate } from "@/lib/dates"
-import { formatMoney, formatMoneyCompact } from "@/lib/money"
+import {
+  CURRENCIES,
+  formatMoney,
+  formatMoneyCompact,
+  parseCurrency,
+} from "@/lib/money"
+import { cx } from "@/lib/utils"
 import Link from "next/link"
 import { VolumeChart } from "./volume-chart"
 
-export default function OverviewPage() {
-  const metrics = headlineMetrics()
-  const volume = dailyVolume(30)
+export default async function OverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>
+}) {
+  // One currency at a time: there are no FX rates, so totals never mix them.
+  const currency = parseCurrency((await searchParams).currency)
+  const metrics = headlineMetrics(currency)
+  const volume = dailyVolume(currency, 30)
 
+  // Minor units go to the chart; it formats once, with the currency.
   const chartData = volume.map((day) => ({
     date: day.date.slice(5),
-    Captured: day.captured / 100,
-    Refunded: day.refunded / 100,
+    Captured: day.captured,
+    Refunded: day.refunded,
   }))
 
   const recent = [...store.payments]
@@ -23,11 +36,29 @@ export default function OverviewPage() {
 
   return (
     <div className="border-t border-gray-200 p-4 sm:p-6 dark:border-gray-800">
+      <nav aria-label="Currency" className="mb-6 flex gap-2">
+        {CURRENCIES.map((code) => (
+          <Link
+            key={code}
+            href={`/overview?currency=${code}`}
+            aria-current={code === currency ? "page" : undefined}
+            className={cx(
+              "rounded-md px-3 py-1 text-sm font-medium ring-1 ring-inset",
+              code === currency
+                ? "bg-blue-50 text-blue-700 ring-blue-500/30 dark:bg-blue-400/10 dark:text-blue-400"
+                : "text-gray-600 ring-gray-200 hover:bg-gray-50 dark:text-gray-400 dark:ring-gray-800",
+            )}
+          >
+            {code}
+          </Link>
+        ))}
+      </nav>
+
       <dl className="grid grid-cols-1 gap-6 sm:grid-cols-3">
         <Stat
-          label="Gross volume"
-          value={formatMoneyCompact(metrics.grossVolume, "USD")}
-          sub="Last 120 days"
+          label={`Net volume (${currency})`}
+          value={formatMoneyCompact(metrics.netVolume, currency)}
+          sub={`${formatMoney(metrics.grossVolume, currency)} captured − ${formatMoney(metrics.refundedVolume, currency)} refunded · last 120 days`}
         />
         <Stat
           label="Payments"
@@ -37,7 +68,7 @@ export default function OverviewPage() {
         <Stat
           label="Open disputes"
           value={String(metrics.openDisputes)}
-          sub={`${formatMoney(metrics.disputedAmount, "USD")} at risk`}
+          sub={`${formatMoney(metrics.disputedAmount, currency)} ${currency} at risk`}
         />
       </dl>
 
@@ -46,9 +77,9 @@ export default function OverviewPage() {
           Daily volume
         </h2>
         <p className="mt-0.5 text-sm/6 text-gray-500">
-          Captured against refunded over the last 30 days.
+          {currency} captured against refunded, by UTC day, over the last 30 days.
         </p>
-        <VolumeChart data={chartData} />
+        <VolumeChart data={chartData} currency={currency} />
       </div>
 
       <div className="mt-10">

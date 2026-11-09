@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
+  CURRENCIES,
   formatMoney,
   formatMoneyCompact,
   parseAmountToMinorUnits,
+  parseCurrency,
   sumMinorUnits,
 } from "./money"
 
@@ -78,5 +80,19 @@ describe("parseAmountToMinorUnits", () => {
     expect(parseAmountToMinorUnits("-250")).toBeNull()
     expect(parseAmountToMinorUnits("twelve")).toBeNull()
     expect(parseAmountToMinorUnits("")).toBeNull()
+  })
+})
+
+describe("parseCurrency", () => {
+  it("accepts the currencies the console handles", () => {
+    expect(CURRENCIES).toEqual(["USD", "EUR", "GBP"])
+    expect(parseCurrency("EUR")).toBe("EUR")
+  })
+
+  it("falls back for anything unknown, including case variants", () => {
+    expect(parseCurrency("JPY")).toBe("USD")
+    expect(parseCurrency("eur")).toBe("USD")
+    expect(parseCurrency(undefined)).toBe("USD")
+    expect(parseCurrency("<script>", "GBP")).toBe("GBP")
   })
 })
